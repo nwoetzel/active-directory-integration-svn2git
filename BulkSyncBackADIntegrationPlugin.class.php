@@ -38,12 +38,12 @@ class BulkSyncBackADIntegrationPlugin extends ADIntegrationPlugin {
 				default:
 					$class = '';
 					$type = '';
-						
+
 			}
 			$output = '<span class="'.$class.'">'.$type;
 			$output .= str_replace("\n","<br />         ",$info).'</span><br />';
 			echo $output;
-				
+
 			if (WP_DEBUG) {
 				if ($fh = @fopen($this->_logfile,'a+')) {
 					fwrite($fh,$type . str_replace("\n","\n         ",$info) . "\n");
@@ -95,7 +95,7 @@ class BulkSyncBackADIntegrationPlugin extends ADIntegrationPlugin {
 				"- ad_port: $this->_port\n".
 				"- use_tls: ".(int) $this->_use_tls."\n".
 				"- network timeout: ". $this->_network_timeout);
-			
+
 		// Connect to Active Directory
 		try {
 			$this->_adldap = @new adLDAP(array(
@@ -133,31 +133,39 @@ class BulkSyncBackADIntegrationPlugin extends ADIntegrationPlugin {
 
 			// Get IDs of users to SyncBack
 			// They must have a wp_usermeta.metakey = 'adi_samaccount' with a not empty meta_value and User 1 (admin) is excluded.
-			if ($userid == NULL) {
-				$users = $wpdb->get_results("SELECT user_id FROM $wpdb->usermeta WHERE meta_key = 'adi_samaccountname' AND meta_value <> '' AND user_id <> 1 ORDER BY user_id");
-			} else {
-				$users = $wpdb->get_results("SELECT user_id FROM $wpdb->usermeta WHERE meta_key = 'adi_samaccountname' AND meta_value <> '' AND user_id <> 1 AND user_id = $userid");
-			}
+			$users = $wpdb->get_results( $wpdb->prepare(
+			        "SELECT user_id
+			         FROM %s
+			         WHERE meta_key = 'adi_samaccountname' AND meta_value <> '' AND user_id <> 1 "
+			         . $userid ? "AND user_id = %s" : "ORDER BY user_id",
+			         $wpdb->usermeta,
+			         $userid
+			));
 
 			// Do we have possible users for SyncBack?
 			if ($users) {
 				foreach ( $users as $user ) {
-						
+
 					$userinfo = get_userdata($user->user_id);
 					if ($userinfo) {
 						$this->_log(ADI_LOG_INFO, 'User-Login: '.$userinfo->user_login);
 						$this->_log(ADI_LOG_INFO, 'User-ID: '.$user->user_id);
-							
+
 
 						$no_attribute = false;
 						$attributes_to_sync = array();
 						foreach ($attributes AS $key => $attribute) {
-								
+
 							if ($no_attribute === false) {
 
 								if (isset($attribute['sync']) && ($attribute['sync'] == true)) {
 									// $value = get_user_meta($user->user_id, $attribute['metakey'], true); // BAD
-									$value = $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM $wpdb->usermeta WHERE meta_key = '".$attribute['metakey']."' AND user_id = ".$user->user_id ) );
+									$value = $wpdb->get_var( $wpdb->prepare(
+									        "SELECT meta_value FROM %s WHERE meta_key = '%s' AND user_id = %d",
+									        $wpdb->usermeta,
+									        $attribute['metakey'],
+									        $user->user_id
+									));
 
 									if ($value !== FALSE) {
 										if ($attribute['type'] == 'list') {
@@ -182,7 +190,7 @@ class BulkSyncBackADIntegrationPlugin extends ADIntegrationPlugin {
 											}
 										}
 									}
-										
+
 								}
 							}
 						}

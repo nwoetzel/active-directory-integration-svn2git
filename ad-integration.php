@@ -1490,14 +1490,14 @@ class ADIntegrationPlugin {
 			$db_version = get_option('AD_Integration_db_version');
 		}
 
-		if (($wpdb->get_var("show tables like '$table_name'") != $table_name) OR ($db_version != ADIntegrationPlugin::DB_VERSION)) {
+		if (($wpdb->get_var( $wpdb->prepare( "show tables like '%s'", $table_name)) != $table_name) OR ($db_version != ADIntegrationPlugin::DB_VERSION)) {
 
-	    	$sql = 'CREATE TABLE ' . $table_name . ' (
+	    	$sql = $wpdb->prepare( 'CREATE TABLE %s (
 		  			id bigint(20) NOT NULL AUTO_INCREMENT,
 		  			user_login varchar(60),
 		  			failed_login_time bigint(11),
 		  			UNIQUE KEY id (id)
-				  );';
+				  );', $table_name);
 
 			require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 	      	dbDelta($sql);
@@ -1538,7 +1538,7 @@ class ADIntegrationPlugin {
 		$table_name = ADIntegrationPlugin::global_db_prefix() . ADIntegrationPlugin::TABLE_NAME;
 
 		// drop table
-		$wpdb->query('DROP TABLE IF EXISTS '.$table_name);
+		$wpdb->query( $wpdb->prepare( 'DROP TABLE IF EXISTS %s', $table_name));
 
 		// delete option
 		if (isset($wpmu_version) && $wpmu_version != '') {
@@ -2395,11 +2395,15 @@ class ADIntegrationPlugin {
 		global $wpdb;
 
 		$this->_log(ADI_LOG_WARN,'storing failed login for user "'.$username.'"');
-		$table_name = ADIntegrationPlugin::global_db_prefix() . ADIntegrationPlugin::TABLE_NAME;
 
-		$sql = "INSERT INTO $table_name (user_login, failed_login_time) VALUES ('" . $wpdb->escape($username)."'," . time() . ")";
-		$result = $wpdb->query($sql);
-
+		$result = $wpdb->insert(
+		        ADIntegrationPlugin::global_db_prefix() . ADIntegrationPlugin::TABLE_NAME,
+		        array(
+		          'user_login' => $username,
+		          'failed_login_time' => time()
+		        ),
+		        array( '%s', '%d')
+		);
 	}
 
 
@@ -2415,8 +2419,13 @@ class ADIntegrationPlugin {
 		$table_name = ADIntegrationPlugin::global_db_prefix() . ADIntegrationPlugin::TABLE_NAME;
 		$time = time() - (int)$this->_block_time;
 
-		$sql = "SELECT count(*) AS count from $table_name WHERE user_login = '".$wpdb->escape($username)."' AND failed_login_time >= $time";
-		return $wpdb->get_var($sql);
+		return $wpdb->get_var( $wpdb->prepare(
+		       "SELECT count(*) AS count from %s
+		        WHERE user_login = '%s' AND failed_login_time >= %d",
+		        $table_name,
+		        $username,
+		        $time
+		));
 	}
 
 
@@ -2430,16 +2439,16 @@ class ADIntegrationPlugin {
 	protected function _cleanup_failed_logins($username = NULL) {
 		global $wpdb;
 
-		$this->_log(ADI_LOG_NOTICE,'cleaning up failed logins for user "'.$username.'"');
+		$this->_log(ADI_LOG_NOTICE,'cleaning up failed logins' . $username ? " for user $username" : "");
 		$table_name = ADIntegrationPlugin::global_db_prefix() . ADIntegrationPlugin::TABLE_NAME;
 		$time = time() - $this->_block_time;
 
-		$sql = "DELETE FROM $table_name WHERE failed_login_time < $time";
-		if ($username != NULL) {
-			$sql .= " OR user_login = '".$wpdb->escape($username)."'";
-		}
-
-		$results = $wpdb->query($sql);
+		$results = $wpdb->query( $wpdb->prepare(
+		        "DELETE FROM %s WHERE failed_login_time < %d" . $username ? "OR user_login = '%s'" : "",
+		        $table_name,
+		        $time,
+		        $username
+		));
 	}
 
 
@@ -2454,14 +2463,17 @@ class ADIntegrationPlugin {
 
 		$table_name = ADIntegrationPlugin::global_db_prefix() . ADIntegrationPlugin::TABLE_NAME;
 
-		$sql = "SELECT max(failed_login_time) FROM $table_name WHERE user_login = '".$wpdb->escape($username)."'";
-		$max_time = $wpdb->get_var($sql);
+		$max_time = $wpdb->get_var( $wpdb->prepare(
+                "SELECT max(failed_login_time) FROM %s WHERE user_login = '%s'",
+		        $table_name,
+		        $username
+		));
 
 		if ($max_time == NULL ) {
 			return 0;
 		}
-		return ($max_time + $this->_block_time) - time();
 
+		return ($max_time + $this->_block_time) - time();
 	}
 
 
