@@ -1470,7 +1470,7 @@ class ADIntegrationPlugin {
 	 */
 	public static function activate() {
 		global $wpdb, $wpmu_version;
-
+		$sCharsetCollate = $this->_getCharset();
 		$table_name = ADIntegrationPlugin::global_db_prefix() . ADIntegrationPlugin::TABLE_NAME;
 
 
@@ -1492,12 +1492,12 @@ class ADIntegrationPlugin {
 
 		if (($wpdb->get_var( $wpdb->prepare( "show tables like '%s'", $table_name)) != $table_name) OR ($db_version != ADIntegrationPlugin::DB_VERSION)) {
 
-	    	$sql = $wpdb->prepare( 'CREATE TABLE %s (
+	    	$sql = 'CREATE TABLE $table_name (
 		  			id bigint(20) NOT NULL AUTO_INCREMENT,
 		  			user_login varchar(60),
 		  			failed_login_time bigint(11),
 		  			UNIQUE KEY id (id)
-				  );', $table_name);
+				  ) $sCharsetCollate;';
 
 			require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 	      	dbDelta($sql);
@@ -1524,7 +1524,6 @@ class ADIntegrationPlugin {
 		      	}
 			}
 		}
-
 	}
 
 
