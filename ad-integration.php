@@ -1651,6 +1651,7 @@ class ADIntegrationPlugin {
 	{
 		$groups = explode(";", $text);
 		$sanitized_groups = array();
+		$invalid_roles = array();
 		foreach ($groups AS $group) {
 			$group = trim($group);
 			$pos = strpos($group, '=');
@@ -1661,8 +1662,21 @@ class ADIntegrationPlugin {
 				if ($role != '') {
 					$sanitized_groups[] = $ad_group . '=' . $role;
 				}
+				if ( !get_role( $role)) {
+				    $invalid_roles[] = $role;
+				}
 			}
 		}
+
+		// check if no invalid role was found
+        if( !empty( $invalid_roles)) {
+            global $wp_roles;
+            // report invalid roles and list all valid roles (keys!!)
+            $msg = 'Use of unknown roles:<br>' . join(",",$invalid_roles) . '<br>Please use any of:<br>' . join( ",\n", array_keys( $wp_roles->roles));
+            add_settings_error('role_equivalent_groups','invalid_roles',$msg,'error');
+            return get_option('AD_Integration_role_equivalent_groups');
+        }
+
 		return implode(";", $sanitized_groups);
 	}
 

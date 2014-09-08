@@ -700,8 +700,8 @@ msgstr ""
 
 #: admin.php:378
 msgid ""
-"WordPress stores roles as lower case (\"Subscriber\" is stored as "
-"\"subscriber\")"
+"WordPress stores roles case sensitive , while there is a role id, typically in lower case and a role name "
+"(name: \"Subscriber\" with id: \"subscriber\"). So be carefule to use the id and not the name!!"
 msgstr ""
 
 #: admin.php:379
